@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Animebook Tracker History</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      /* ── THEME VARIABLES ── */
+      :root {
+        --bg:       #0f1117;
+        --bg2:      #13151f;
+        --bg3:      #1e2235;
+        --border:   #22263a;
+        --border2:  #2a2e44;
+        --text:     #e8e8ec;
+        --text2:    #c8c8d0;
+        --text3:    #888;
+        --text4:    #555;
+        --text5:    #444;
+        --accent:   #6c63ff;
+        --date-col: #6c63ff;
+        --input-bg: #0f1117;
+        --modal-bg: #0f1117;
+        --danger:   #ff4444;
+        --danger-bg:#5c1a1a;
+      }
+
+      body.light {
+        --bg:       #f5f5fc;
+        --bg2:      #ffffff;
+        --bg3:      #eeeef8;
+        --border:   #e2e4f0;
+        --border2:  #dde0ee;
+        --text:     #1a1a2e;
+        --text2:    #444466;
+        --text3:    #888;
+        --text4:    #aaa;
+        --text5:    #bbb;
+        --accent:   #6c63ff;
+        --date-col: #6c63ff;
+        --input-bg: #ffffff;
+        --modal-bg: #ffffff;
+        --danger:   #e03030;
+        --danger-bg:#fce8e8;
+      }
+
+      body {
+        font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        font-size: 13px;
+        background: var(--bg);
+        color: var(--text);
+        padding: 20px;
+      }
+
+      /* LAYOUT */
+      .layout {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        gap: 24px;
+        max-width: 980px;
+        margin: 0 auto;
+        align-items: start;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 20px;
+      }
+
+      .sidebar-card {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px 14px;
+      }
+
+      .sidebar-title {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text4);
+        margin-bottom: 14px;
+      }
+
+      .donut-wrap { position: relative; width: 120px; height: 120px; margin: 0 auto 16px; }
+
+      .donut-centre {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        pointer-events: none;
+      }
+
+      .donut-total {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1.1;
+      }
+
+      .donut-label {
+        font-size: 8px;
+        color: var(--text4);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .legend-list {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 10px;
+      }
+
+      .legend-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .legend-name {
+        color: #aaa;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .legend-pct {
+        color: var(--text4);
+        font-size: 9px;
+        flex-shrink: 0;
+      }
+
+      /* FILTER */
+      .filter-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+      .filter-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+      .filter-pill {
+        font-size: 8px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+        text-transform: uppercase; letter-spacing: .04em; cursor: pointer;
+        border: 1.5px solid transparent; transition: opacity .15s, border-color .15s;
+        opacity: 0.35;
+      }
+      .filter-pill.active { opacity: 1; }
+      .filter-reset {
+        font-size: 9px; color: var(--text5); background: none; border: none;
+        cursor: pointer; text-decoration: underline; padding: 0;
+        font-family: inherit;
+      }
+      .filter-reset:hover { color: var(--text3); }
+
+      .main-col {
+        min-width: 0;
+        max-width: 760px;
+      }
+
+      /* HEADER */
+      .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .header-left { display: flex; align-items: center; gap: 10px; }
+      .logo-icon {
+        width: 28px; height: 28px;
+        background: linear-gradient(135deg, #6c63ff, #c84bfa);
+        border-radius: 6px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 700; color: white; flex-shrink: 0;
+      }
+      .logo-name {
+        font-size: 13px; font-weight: 600;
+        letter-spacing: 0.06em; color: #b0b0c0; text-transform: uppercase;
+      }
+      .edit-btn {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text3);
+        font-size: 10px;
+        font-family: inherit;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 5px 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .edit-btn.active { border-color: var(--accent); color: var(--accent); background: var(--bg3); }
+
+      /* EDIT MODE TOOLBAR */
+      .edit-toolbar {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        padding: 8px 14px;
+        margin-bottom: 14px;
+      }
+      .edit-toolbar.visible { display: flex; }
+      .toolbar-info { font-size: 11px; color: var(--accent); }
+      .toolbar-actions { display: flex; gap: 8px; }
+      .toolbar-btn {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        color: var(--text3);
+        font-size: 10px;
+        font-family: inherit;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+      .toolbar-btn:hover { border-color: var(--text4); color: #aaa; }
+      .toolbar-btn.danger { border-color: #5c1a1a; color: var(--danger); }
+      .toolbar-btn.danger:hover { background: var(--danger-bg); }
+      .toolbar-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+      /* DAY BLOCKS */
+      .day-block { margin-bottom: 14px; }
+      .day-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 8px 8px 0 0;
+      }
+      .day-header-left { display: flex; align-items: center; gap: 8px; }
+      .day-date {
+        font-size: 11px; font-weight: 600;
+        letter-spacing: 0.04em; color: var(--accent);
+        text-transform: uppercase;
+      }
+      .day-total { font-size: 13px; font-weight: 700; color: var(--text); }
+      .day-delete-btn {
+        display: none;
+        background: none;
+        border: 1px solid var(--danger-bg);
+        border-radius: 4px;
+        color: var(--danger);
+        font-size: 9px;
+        font-family: inherit;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 2px 8px;
+        cursor: pointer;
+      }
+      .day-delete-btn:hover { background: var(--danger-bg); }
+      .edit-mode .day-delete-btn { display: block; }
+
+      /* SOURCE BAR */
+      .source-bar {
+        display: flex;
+        height: 4px;
+        overflow: hidden;
+        border-left: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+      }
+
+      /* VIDEO LIST */
+      .day-videos {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 6px 0;
+      }
+      .section-label {
+        font-size: 9px; text-transform: uppercase;
+        letter-spacing: 0.1em; color: var(--text4);
+        padding: 4px 14px 2px;
+      }
+      .video-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        transition: background 0.1s;
+      }
+      .video-row:hover { background: var(--bg3); }
+      .video-row.selected { background: var(--bg3); }
+      .video-row.selected .vtitle { color: var(--text3); text-decoration: line-through; }
+      .video-row.selected .vtime { color: var(--text5); }
+
+      /* CHECKBOX */
+      .row-checkbox {
+        display: none;
+        width: 14px; height: 14px;
+        border-radius: 3px;
+        border: 1px solid var(--border2);
+        background: var(--border);
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.1s;
+        position: relative;
+      }
+      .edit-mode .row-checkbox { display: flex; }
+      .row-checkbox.checked { background: #6c63ff; border-color: var(--accent); }
+      .row-checkbox.checked::after {
+        content: '';
+        display: block;
+        width: 4px; height: 7px;
+        border-right: 2px solid white;
+        border-bottom: 2px solid white;
+        transform: rotate(45deg) translate(-1px, -1px);
+      }
+
+      /* SOURCE BADGES */
+      .vbadge {
+        font-size: 9px; font-weight: 700;
+        padding: 2px 7px; border-radius: 999px;
+        text-transform: uppercase; letter-spacing: 0.04em;
+        flex-shrink: 0;
+      }
+      .badge-animebook  { background: #2a1f6e; color: var(--accent); }
+      .badge-youtube    { background: var(--danger-bg); color: var(--danger); }
+      .badge-asbplayer  { background: #4a0a2a; color: #e91e8c; }
+      .badge-cijapanese { background: #3d0a2e; color: #f472b6; }
+      .badge-tver       { background: #1e3a6e; color: #60a5fa; }
+      .badge-disneyplus { background: #0a3d3d; color: #2dd4bf; }
+      .badge-amazonprime { background: #3d2e00; color: #f5c518; }
+
+      /* Light mode badge variants */
+      body.light .badge-animebook  { background: #ede8ff; color: #5a52cc; }
+      body.light .badge-youtube    { background: #ffecec; color: #cc2222; }
+      body.light .badge-asbplayer  { background: #fce8f5; color: #c41870; }
+      body.light .badge-cijapanese { background: #fde8f5; color: #b83490; }
+      body.light .badge-tver       { background: #e8f0ff; color: #1a4ab8; }
+      body.light .badge-disneyplus { background: #e0f7f5; color: #0a7a6e; }
+      body.light .badge-amazonprime { background: #fff8e0; color: #8a6800; }
+
+      .vtitle {
+        flex: 1; min-width: 0;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        color: #c8c8d8; font-size: 12px;
+        transition: color 0.1s;
+      }
+      .vtime {
+        font-size: 11px; color: var(--text4);
+        flex-shrink: 0; font-variant-numeric: tabular-nums;
+        transition: color 0.1s;
+      }
+
+      /* CONFIRM DIALOG */
+      .overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.7);
+        align-items: center; justify-content: center;
+        z-index: 100;
+      }
+      .overlay.visible { display: flex; }
+      .dialog {
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 10px;
+        padding: 20px 24px;
+        max-width: 340px;
+        width: 90%;
+      }
+      .dialog-title {
+        font-size: 13px; font-weight: 600;
+        color: var(--text); margin-bottom: 8px;
+      }
+      .dialog-body { font-size: 11px; color: var(--text4); margin-bottom: 18px; line-height: 1.6; }
+      .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
+      .dialog-btn {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        color: var(--text3);
+        font-size: 10px;
+        font-family: inherit;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 5px 14px;
+        cursor: pointer;
+      }
+      .dialog-btn:hover { border-color: var(--text4); color: #aaa; }
+      .dialog-btn.danger { border-color: #5c1a1a; color: var(--danger); }
+      .dialog-btn.danger:hover { background: var(--danger-bg); }
+
+      .empty { color: var(--text5); font-size: 12px; text-align: center; padding: 40px 0; }
+
+      /* ── LIGHT MODE OVERRIDES ── */
+      body.light .page-header { border-bottom-color: var(--border); }
+      body.light .logo-name { color: #2a2a4a; }
+      body.light .edit-btn { color: var(--text4); border-color: var(--border2); }
+
+      body.light .edit-toolbar { background: #f0eeff; border-color: #c8c0ff; }
+      body.light .toolbar-info { color: #6c63ff; }
+      body.light .toolbar-btn { color: var(--text4); border-color: var(--border2); }
+      body.light .toolbar-btn.danger { border-color: #e8aaaa; color: #cc2222; }
+
+      body.light .day-header { background: #eeeef8; border-color: var(--border); }
+      body.light .day-date { color: #5a52cc; }
+      body.light .day-delete-btn { border-color: #e8aaaa; color: #cc2222; }
+      body.light .day-delete-btn:hover { background: #ffecec; }
+
+      body.light .source-bar { border-color: var(--border); }
+
+      body.light .day-videos { background: #ffffff; border-color: var(--border); }
+      body.light .section-label { color: #aab0cc; }
+      body.light .video-row:hover { background: #f0f0f8; }
+      body.light .video-row.selected { background: #ede8ff; }
+
+      body.light .row-checkbox { border-color: var(--border2); background: var(--bg2); }
+
+      body.light .vtitle { color: var(--text2); }
+      body.light .vtime { color: var(--text4); }
+      body.light .vbadge { }
+
+      body.light .dialog { background: var(--modal-bg); border-color: var(--border2); }
+      body.light .dialog-btn.danger { border-color: #e8aaaa; color: #cc2222; }
+      body.light .dialog-btn.danger:hover { background: #ffecec; }
+      body.light .overlay { background: rgba(0,0,0,0.4); }
+
+      body.light .filter-reset { color: #bbb; }
+      body.light .filter-divider { border-color: var(--border); }
+
+      body.light .empty { color: var(--text4); }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="sidebar-card">
+          <div class="sidebar-title">Sources</div>
+          <div class="donut-wrap">
+            <div id="donutSvgWrap" style="position:relative;width:120px;height:120px;"></div>
+            <div class="donut-centre">
+              <div class="donut-total" id="donutTotal">—</div>
+              <div class="donut-label">all time</div>
+            </div>
+          </div>
+          <div class="legend-list" id="donutLegend"></div>
+
+          <div class="filter-divider"></div>
+          <div class="sidebar-title">Filter</div>
+          <div class="filter-pills" id="filterPills"></div>
+          <button class="filter-reset" id="filterReset">Show all</button>
+        </div>
+      </div>
+
+      <!-- MAIN COLUMN -->
+      <div class="main-col">
+
+        <div class="page-header">
+          <div class="header-left">
+            <div class="logo-icon">AT</div>
+            <div class="logo-name">Animebook Tracker History</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button id="histThemeToggle" title="Toggle light/dark mode" style="background:none;border:none;cursor:pointer;padding:2px;display:flex;align-items:center;opacity:0.5;color:var(--text);">
+              <svg id="histThemeIcon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="3" fill="currentColor"/>
+                <line x1="7" y1="0.5" x2="7" y2="2.5" stroke="currentColor" stroke-width="1.4"/>
+                <line x1="7" y1="11.5" x2="7" y2="13.5" stroke="currentColor" stroke-width="1.4"/>
+                <line x1="0.5" y1="7" x2="2.5" y2="7" stroke="currentColor" stroke-width="1.4"/>
+                <line x1="11.5" y1="7" x2="13.5" y2="7" stroke="currentColor" stroke-width="1.4"/>
+                <line x1="2.4" y1="2.4" x2="3.8" y2="3.8" stroke="currentColor" stroke-width="1.4"/>
+                <line x1="10.2" y1="10.2" x2="11.6" y2="11.6" stroke="currentColor" stroke-width="1.4"/>
+                <line x1="11.6" y1="2.4" x2="10.2" y2="3.8" stroke="currentColor" stroke-width="1.4"/>
+                <line x1="3.8" y1="10.2" x2="2.4" y2="11.6" stroke="currentColor" stroke-width="1.4"/>
+              </svg>
+            </button>
+            <button class="edit-btn" id="editToggle">Edit</button>
+          </div>
+        </div>
+
+        <div class="edit-toolbar" id="editToolbar">
+          <div class="toolbar-info" id="toolbarInfo">0 entries selected</div>
+          <div class="toolbar-actions">
+            <button class="toolbar-btn" id="selectAllBtn">Select all</button>
+            <button class="toolbar-btn danger" id="deleteSelectedBtn" disabled>Delete selected</button>
+          </div>
+        </div>
+
+        <div id="history"></div>
+
+      </div><!-- end main-col -->
+    </div><!-- end layout -->
+
+    <!-- Confirm dialog -->
+    <div class="overlay" id="confirmOverlay">
+      <div class="dialog">
+        <div class="dialog-title">Delete entries?</div>
+        <div class="dialog-body" id="confirmBody">This will permanently remove the selected entries from your history.</div>
+        <div class="dialog-actions">
+          <button class="dialog-btn" id="confirmCancel">Cancel</button>
+          <button class="dialog-btn danger" id="confirmDelete">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="history.js"></script>
+  </body>
+</html>
