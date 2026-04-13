@@ -24,6 +24,13 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.classList.remove("light");
       if (histThemeIcon) histThemeIcon.innerHTML = sunSVG;
     }
+    // Recolour heatmap cells immediately in sync with theme
+    const colours = getHeatmapColours();
+    document.querySelectorAll(".hcell[data-intensity]").forEach(cell => {
+      cell.style.background = colours[parseInt(cell.dataset.intensity)];
+    });
+    const legCells = document.querySelectorAll(".heatmap-leg-cell");
+    colours.forEach((c, i) => { if (legCells[i]) legCells[i].style.background = c; });
   }
 
   chrome.storage.local.get(["theme"], (data) => {
@@ -683,6 +690,162 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ── Heatmap ───────────────────────────────────────────────────────────────
+  const HEATMAP_COLOURS_DARK  = ["#1a1c2a","#2a1f6e","#4a35aa","#6c63ff","#9d8fff"];
+  const HEATMAP_COLOURS_LIGHT = ["#eeeef8","#c8c0ff","#9d8fff","#6c63ff","#4a35aa"];
+  const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const DAY_LABELS  = ["","Mo","","We","","Fr",""];
+
+  let heatmapYear = new Date().getFullYear();
+
+  function getHeatmapColours() {
+    return document.body.classList.contains("light") ? HEATMAP_COLOURS_LIGHT : HEATMAP_COLOURS_DARK;
+  }
+
+  function buildHeatmap(watchtime, year) {
+    const yearEl    = document.getElementById("heatmapYear");
+    const monthsEl  = document.getElementById("heatmapMonths");
+    const gridEl    = document.getElementById("heatmapGrid");
+    const tooltipEl = document.getElementById("heatmapTooltip");
+    if (!yearEl || !monthsEl || !gridEl) return;
+
+    yearEl.textContent = year;
+
+    // Build daily totals map for this year
+    const perDay = (watchtime && watchtime.perDay) || {};
+    const dailyTotals = {};
+    let maxSecs = 0;
+    Object.entries(perDay).forEach(([date, day]) => {
+      if (!date.startsWith(year + "")) return;
+      let total = 0;
+      Object.values(day.videos || {}).forEach(v => {
+        total += typeof v === "object" ? (v.seconds || 0) : (v || 0);
+      });
+      (day.activities || []).forEach(a => { total += (a.minutes || 0) * 60; });
+      if (total > 0) { dailyTotals[date] = total; maxSecs = Math.max(maxSecs, total); }
+    });
+
+    // Jan 1 of year — what day of week?
+    const jan1 = new Date(year, 0, 1);
+    const startOffset = (jan1.getDay() + 6) % 7; // Mon=0
+    const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    const daysInYear = isLeap ? 366 : 365;
+    const totalCols = Math.ceil((daysInYear + startOffset) / 7);
+    const colours = getHeatmapColours();
+
+    // Month labels
+    monthsEl.innerHTML = "";
+    const monthCols = [0];
+    for (let m = 1; m < 12; m++) {
+      const d = new Date(year, m, 1);
+      const dayOfYear = Math.floor((d - jan1) / 86400000);
+      monthCols.push(Math.floor((dayOfYear + startOffset) / 7));
+    }
+    monthCols.forEach((col, i) => {
+      const span = document.createElement("span");
+      span.className = "heatmap-month";
+      span.textContent = MONTH_NAMES[i];
+      const nextCol = monthCols[i + 1] || totalCols;
+      span.style.flex = (nextCol - col).toString();
+      monthsEl.appendChild(span);
+    });
+
+    // Grid
+    gridEl.innerHTML = "";
+    gridEl.style.gridTemplateColumns = "24px repeat(" + totalCols + ", 1fr)";
+
+    for (let row = 0; row < 7; row++) {
+      const lbl = document.createElement("div");
+      lbl.className = "heatmap-day-lbl";
+      lbl.textContent = DAY_LABELS[row];
+      gridEl.appendChild(lbl);
+
+      for (let col = 0; col < totalCols; col++) {
+        const dayIndex = col * 7 + row - startOffset;
+        const cell = document.createElement("div");
+
+        if (dayIndex < 0 || dayIndex >= daysInYear) {
+          cell.style.background = "transparent";
+          gridEl.appendChild(cell);
+          continue;
+        }
+
+        const date = new Date(year, 0, dayIndex + 1);
+        const dateStr = date.getFullYear() + "-" +
+          String(date.getMonth() + 1).padStart(2, "0") + "-" +
+          String(date.getDate()).padStart(2, "0");
+        const secs = dailyTotals[dateStr] || 0;
+
+        let intensity = 0;
+        if (secs > 0 && maxSecs > 0) {
+          intensity = Math.max(1, Math.min(4, Math.ceil((secs / maxSecs) * 4)));
+        }
+
+        cell.className = "hcell";
+        cell.dataset.intensity = intensity;
+        cell.style.background = colours[intensity];
+
+        // Tooltip for every cell
+        const monthNames2 = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        const day = date.getDate();
+        const suffix = day === 1 || day === 21 || day === 31 ? "st" :
+                       day === 2 || day === 22 ? "nd" :
+                       day === 3 || day === 23 ? "rd" : "th";
+        const friendlyDate = monthNames2[date.getMonth()] + " " + day + suffix;
+        const secs2 = dailyTotals[dateStr] || 0;
+        let timeStr2 = "No activity";
+        if (secs2 > 0) {
+          const h2 = Math.floor(secs2 / 3600);
+          const m2 = Math.floor((secs2 % 3600) / 60);
+          timeStr2 = h2 > 0 ? h2 + "h " + m2 + "m" : m2 + "m";
+        }
+        const label = friendlyDate + " - " + timeStr2;
+
+        cell.addEventListener("mouseenter", () => {
+          tooltipEl.textContent = label;
+          tooltipEl.style.display = "block";
+        });
+        cell.addEventListener("mousemove", (e) => {
+          tooltipEl.style.left = (e.clientX + 12) + "px";
+          tooltipEl.style.top  = (e.clientY - 32) + "px";
+        });
+        cell.addEventListener("mouseleave", () => {
+          tooltipEl.style.display = "none";
+        });
+        gridEl.appendChild(cell);
+      }
+    }
+
+    // Update legend colours
+    const legCells = document.querySelectorAll(".heatmap-leg-cell");
+    colours.forEach((c, i) => { if (legCells[i]) legCells[i].style.background = c; });
+  }
+
+  function initHeatmap(watchtime) {
+    buildHeatmap(watchtime, heatmapYear);
+
+    document.getElementById("heatmapPrev").addEventListener("click", () => {
+      heatmapYear--;
+      buildHeatmap(window.__currentWatchtime, heatmapYear);
+    });
+    document.getElementById("heatmapNext").addEventListener("click", () => {
+      heatmapYear++;
+      buildHeatmap(window.__currentWatchtime, heatmapYear);
+    });
+  }
+
+  // Re-colour heatmap cells on theme change without rebuilding
+  chrome.storage.onChanged.addListener((changes) => {
+    if ("theme" in changes) {
+      const colours = getHeatmapColours();
+      document.querySelectorAll(".hcell[data-intensity]").forEach(cell => {
+        cell.style.background = colours[parseInt(cell.dataset.intensity)];
+      });
+      const legCells = document.querySelectorAll(".heatmap-leg-cell");
+      colours.forEach((c, i) => { if (legCells[i]) legCells[i].style.background = c; });
+    }
+  });
+
   // ── Initial load ──────────────────────────────────────────────────────────
 
   chrome.storage.local.get(["watchtime"], (data) => {
@@ -690,5 +853,6 @@ document.addEventListener("DOMContentLoaded", () => {
     window.__currentWatchtime = wt;
     render(wt);
     buildFilterPills(wt);
+    initHeatmap(wt);
   });
 });
