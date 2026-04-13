@@ -277,8 +277,25 @@ The version at the start of development. Tracking worked only on Animebook (anim
 
 ---
 
-## v4.5 *(planned)*
-- Daily heatmap tab: 24-hour colour blocks showing immersion by hour for today
+## v4.5 — Activity heatmap + sticky header
+
+### Activity heatmap (history page)
+- Full-width heatmap spanning the entire page above the sidebar/history split, showing all 365 days of a given year (Jan → Dec)
+- Purple intensity scale — 5 levels from empty (`#1a1c2a`) to brightest (`#9d8fff`) in dark mode, inverted light purple ramp in light mode
+- Intensity is relative to the most active day of the year, so the scale always makes good use of the colour range
+- Both video time and custom activity time are included in daily totals
+- **Year navigation** — PREV and NEXT buttons to browse previous and future years; defaults to the current year on load
+- **Tooltips on every cell** — hovering any cell shows a friendly formatted date and time, e.g. `April 2nd - 15m` or `April 2nd - No activity`; the year is omitted since it's already shown as the heatmap title
+- Ordinal suffixes handled correctly for all dates (1st, 2nd, 3rd, 4th, 11th, 12th, 21st etc.)
+- Theme switching recolours cells instantly in sync with the body class change — no rebuild, no flash; cells have `transition: background 0s` for an immediate swap
+- Each cell stores its intensity level in `data-intensity` so the theme handler can recolour without re-querying storage
+- Legend (Less → More) sits at the bottom right of the heatmap card; legend cells also recolour on theme switch
+
+### Sticky header (history page)
+- The "Animebook Tracker History" header now sticks to the top of the viewport as you scroll, keeping the Edit button and theme toggle always accessible
+- Implemented as a `position:sticky` outer wrapper that is a direct child of `body` with `min-height:100vh` — the pattern that works correctly in Chrome extension page contexts
+- Header border sits on the sticky wrapper so it travels with the header
+- Sidebar `top` offset updated to `76px` so it sticks just below the header rather than behind it
 
 ---
 
