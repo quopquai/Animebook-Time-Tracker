@@ -337,7 +337,11 @@ document.addEventListener("DOMContentLoaded", function () {
       autoHideToggle.checked = data.autoHideTrackBtn === true;
     });
 
-    settingsBtn.addEventListener("click", () => settingsOverlay.classList.add("open"));
+    settingsBtn.addEventListener("click", () => {
+      settingsOverlay.classList.add("open");
+      // Try to load decks when modal opens
+      if (ankiToggle.checked) loadAnkiDecks();
+    });
     settingsClose.addEventListener("click", () => settingsOverlay.classList.remove("open"));
     settingsOverlay.addEventListener("click", (e) => {
       if (e.target === settingsOverlay) settingsOverlay.classList.remove("open");
@@ -345,6 +349,108 @@ document.addEventListener("DOMContentLoaded", function () {
 
     autoHideToggle.addEventListener("change", () => {
       chrome.storage.local.set({ autoHideTrackBtn: autoHideToggle.checked });
+    });
+
+    // ── Anki integration ──────────────────────────────────────────────────────
+    const ankiToggle     = document.getElementById("ankiToggle");
+    const ankiDeckWrap   = document.getElementById("ankiDeckWrap");
+    const ankiDeckSelect = document.getElementById("ankiDeckSelect");
+    const ankiStatus     = document.getElementById("ankiStatus");
+    const ankiStat       = document.getElementById("anki-stat");
+    const ankiCardsEl    = document.getElementById("anki-cards");
+    const ankiDeckLabel  = document.getElementById("anki-deck-label");
+
+    const ANKI_URL = "http://127.0.0.1:8765";
+
+    async function ankiRequest(action, params = {}) {
+      const resp = await fetch(ANKI_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, version: 6, params })
+      });
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      return data.result;
+    }
+
+    async function loadAnkiDecks() {
+      ankiStatus.textContent = "Connecting to Anki...";
+      ankiDeckSelect.innerHTML = "<option value=''>-- Loading... --</option>";
+      try {
+        const decks = await ankiRequest("deckNames");
+        ankiDeckSelect.innerHTML = decks.map(d =>
+          `<option value="${d}">${d}</option>`
+        ).join("");
+        // Restore saved selection and fetch count
+        chrome.storage.local.get(["ankiDeck"], (data) => {
+          if (data.ankiDeck) {
+            ankiDeckSelect.value = data.ankiDeck;
+            fetchAnkiCardCount(data.ankiDeck);
+          }
+        });
+        ankiStatus.textContent = decks.length + " decks found";
+      } catch (e) {
+        ankiDeckSelect.innerHTML = "<option value=''>-- Anki not reachable --</option>";
+        ankiStatus.textContent = "Could not connect to AnkiConnect. Is Anki running?";
+      }
+    }
+
+    async function fetchAnkiCardCount(deck) {
+      try {
+        const cards = await ankiRequest("findCards", { query: `deck:"${deck}"` });
+        const count = cards.length;
+        chrome.storage.local.set({ ankiCardCount: count });
+        ankiCardsEl.textContent = count.toLocaleString();
+        ankiDeckLabel.textContent = deck;
+        ankiStat.style.display = "";
+      } catch (e) {
+        // Anki offline — show cached count
+        chrome.storage.local.get(["ankiCardCount", "ankiDeck"], (data) => {
+          const cached = data.ankiCardCount;
+          const cachedDeck = data.ankiDeck || deck;
+          if (cached !== undefined) {
+            ankiCardsEl.textContent = cached.toLocaleString();
+            ankiDeckLabel.textContent = "offline";
+          } else {
+            ankiCardsEl.textContent = "—";
+            ankiDeckLabel.textContent = "offline";
+          }
+          ankiStat.style.display = "";
+        });
+      }
+    }
+
+    function applyAnkiState(enabled, deck) {
+      ankiDeckWrap.style.display = enabled ? "block" : "none";
+      if (enabled && deck) {
+        fetchAnkiCardCount(deck);
+      } else {
+        ankiStat.style.display = "none";
+      }
+    }
+
+    // Load saved Anki state on open
+    chrome.storage.local.get(["ankiEnabled", "ankiDeck", "ankiCardCount"], (data) => {
+      ankiToggle.checked = data.ankiEnabled === true;
+      applyAnkiState(data.ankiEnabled === true, data.ankiDeck);
+    });
+
+    ankiToggle.addEventListener("change", () => {
+      const enabled = ankiToggle.checked;
+      chrome.storage.local.set({ ankiEnabled: enabled });
+      ankiDeckWrap.style.display = enabled ? "block" : "none";
+      if (enabled) {
+        loadAnkiDecks();
+      } else {
+        ankiStat.style.display = "none";
+      }
+    });
+
+    ankiDeckSelect.addEventListener("change", () => {
+      const deck = ankiDeckSelect.value;
+      if (!deck) return;
+      chrome.storage.local.set({ ankiDeck: deck });
+      fetchAnkiCardCount(deck);
     });
 
     function buildLevelSettingsUI() {

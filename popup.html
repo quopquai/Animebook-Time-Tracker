@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Animebook Time Tracker</title>
+  <title>Animebook Tracker</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -122,7 +122,7 @@
     }
     .stats-row-2 {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
       gap: 8px;
       margin-bottom: 10px;
     }
@@ -384,7 +384,7 @@
   <div class="header">
     <div class="logo">
       <div class="logo-icon">AT</div>
-      <span class="logo-name">Animebook Time Tracker</span>
+      <span class="logo-name">Animebook Tracker</span>
     </div>
     <div class="header-right">
       <label class="toggle-wrap" title="Toggle tracking on/off">
@@ -421,10 +421,15 @@
     <div class="stat"><div class="stat-label">All Time</div><div class="stat-value" id="alltime-stat">0h 0m</div></div>
   </div>
 
-  <!-- STATS: days + videos -->
+  <!-- STATS: days + videos + anki -->
   <div class="stats-row-2">
     <div class="stat"><div class="stat-label">Days Immersed</div><div class="stat-value" id="days-immersed">0</div></div>
     <div class="stat"><div class="stat-label">Videos Watched</div><div class="stat-value" id="videos-watched">0</div></div>
+    <div class="stat" id="anki-stat" style="display:none;">
+      <div class="stat-label">Anki Cards</div>
+      <div class="stat-value" id="anki-cards">—</div>
+      <div style="font-size:8px;color:var(--text4);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="anki-deck-label"></div>
+    </div>
   </div>
 
   <!-- DAILY GOAL -->
@@ -576,6 +581,24 @@
           <input type="checkbox" id="autoHideToggle">
           <span class="toggle-slider"></span>
         </label>
+      </div>
+      <hr class="modal-divider">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
+        <div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:3px;">Anki integration</div>
+          <div style="font-size:10px;color:var(--text4);">Show card count from a deck via AnkiConnect</div>
+        </div>
+        <label class="toggle-wrap" style="margin-left:12px;">
+          <input type="checkbox" id="ankiToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div id="ankiDeckWrap" style="display:none;margin-top:10px;">
+        <div style="font-size:10px;color:var(--text4);margin-bottom:6px;">Select deck</div>
+        <select id="ankiDeckSelect" class="field-input" style="width:100%;font-size:11px;padding:6px 8px;">
+          <option value="">-- Loading decks... --</option>
+        </select>
+        <div id="ankiStatus" style="font-size:10px;color:var(--text4);margin-top:6px;"></div>
       </div>
     </div>
   </div>
