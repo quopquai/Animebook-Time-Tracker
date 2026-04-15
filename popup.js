@@ -187,18 +187,27 @@ document.addEventListener("DOMContentLoaded", function () {
       getDates().forEach(date => {
         const dayInfo = perDay[date];
         if (!dayInfo) return;
-        const totalSec = dayInfo.total || 0;
-        allTime += totalSec;
 
-        if (totalSec > 0 || (dayInfo.activities && dayInfo.activities.length > 0)) {
+        // Sum individual video seconds + activity minutes for accuracy
+        let dayTotal = 0;
+        Object.values(dayInfo.videos || {}).forEach(v => {
+          dayTotal += typeof v === "object" ? (v.seconds || 0) : (v || 0);
+        });
+        (dayInfo.activities || []).forEach(act => {
+          dayTotal += (act.minutes || 0) * 60;
+        });
+
+        allTime += dayTotal;
+
+        if (dayTotal > 0 || (dayInfo.activities && dayInfo.activities.length > 0)) {
           daysImmersed++;
         }
 
         const d = new Date(date + "T00:00:00");
 
-        if (date === formatDateLocal(now)) today += totalSec;
-        if (d >= thisMonday && d <= thisSunday) week += totalSec;
-        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) month += totalSec;
+        if (date === formatDateLocal(now)) today += dayTotal;
+        if (d >= thisMonday && d <= thisSunday) week += dayTotal;
+        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) month += dayTotal;
       });
 
       // Count unique videos directly from perDay — no extra storage read needed
